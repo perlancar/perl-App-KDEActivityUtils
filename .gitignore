@@ -1,0 +1,5 @@
+App-KDEActivityUtils-*
+.build
+*~
+nytprof*
+.DS_Store
