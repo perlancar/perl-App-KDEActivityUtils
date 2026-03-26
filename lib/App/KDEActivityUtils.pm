@@ -70,7 +70,7 @@ my $_comp_kde_activity_name = sub {
     my $word = $args{word};
 
     my $res = list_kde_activities(detail => 1);
-    return undef unless $res->[0] == 200;
+    return unless $res->[0] == 200;
 
     Complete::Util::complete_array_elem(word => $word, array=>[ map { $_->{name} } @{$res->[2] }]);
 };
