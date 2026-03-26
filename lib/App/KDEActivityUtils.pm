@@ -48,8 +48,8 @@ sub list_kde_activities {
     for my $line (split /^/m, $stdout) {
         my ($status, $guid, $name, $icon) = $line =~ /^\[(.+?)\] ([0-9a-f-]+) (.+?) \((.*?)\)/;
         push @rows, {
-            is_running => ($status =~ /RUNNING|CURRENT/),
-            is_current => ($status =~ /CURRENT/),
+            is_running => ($status =~ /RUNNING|CURRENT/ ? 1:0),
+            is_current => ($status =~ /CURRENT/ ? 1:0),
             guid => $guid,
             name => $name,
             icon => $icon,
@@ -75,9 +75,45 @@ my $_comp_kde_activity_name = sub {
     Complete::Util::complete_array_elem(word => $word, array=>[ map { $_->{name} } @{$res->[2] }]);
 };
 
+sub _push_activity_stack {
+    require IPC::ShareLite;
+    require List::Util::Uniq;
+
+    my $name = shift;
+
+    my $share = IPC::ShareLite->new(
+        -key     => 6001,
+        -create  => 'yes',
+        -destroy => 'no',
+    );
+    my @stack = split /\|/, ($share->fetch // '');
+    unshift @stack, $name;
+    @stack = List::Util::Uniq::uniq_adj(@stack);
+    $share->store(join "|", @stack);
+}
+
+sub _get_activity_stack {
+    my $name = shift;
+
+    require IPC::ShareLite;
+    my $share = IPC::ShareLite->new(
+        -key     => 6001,
+        -create  => 'yes',
+        -destroy => 'no',
+    );
+    split /\|/, ($share->fetch // '');
+}
+
 $SPEC{set_current_kde_activity} = {
     v => 1.1,
     summary => 'Set KDE current activity',
+    description => <<'MARKDOWN',
+
+Features:
+- Specifying activity by name (kactivities-cli wants GUID)
+- Tab completion
+
+MARKDOWN
     args => {
         name => {
             schema => 'str*',
@@ -104,9 +140,48 @@ sub set_current_kde_activity {
     }
     return [404, "Cannot find activity named '$name'"] unless $guid;
 
-    system("qdbus", "org.kde.ActivityManager", "/ActivityManager/Activities", "SetCurrentActivity", $guid);
+    system({capture_stdout => \my $dummy}, "qdbus", "org.kde.ActivityManager", "/ActivityManager/Activities", "SetCurrentActivity", $guid);
     return [500, "Can't run qdbus"] if $?;
+
+    _push_activity_stack($name);
     [200];
+}
+
+$SPEC{return_to_previously_set_kde_activity} = {
+    v => 1.1,
+    summary => 'Return to previously set KDE activity',
+    description => <<'MARKDOWN',
+
+MARKDOWN
+    args => {
+        num => {
+            schema => 'uint*',
+            default => 1,
+            pos => 0,
+        },
+    },
+};
+sub return_to_previously_set_kde_activity {
+    my %args = @_;
+    my $num = $args{num} // 1;
+
+    my @stack = _get_activity_stack();
+    return [304] if $num >= @stack;
+
+    set_current_kde_activity(name => $stack[$num]);
+}
+
+$SPEC{list_kde_activities_stack} = {
+    v => 1.1,
+    summary => 'List KDE activities in the order of set()',
+    description => <<'MARKDOWN',
+
+MARKDOWN
+    args => {
+    },
+};
+sub list_kde_activities_stack {
+    [200, "OK", [ _get_activity_stack()]];
 }
 
 1;
