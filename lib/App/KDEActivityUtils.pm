@@ -14,6 +14,7 @@ use IPC::System::Options 'system', -log=>1;
 # VERSION
 
 our @EXPORT_OK = qw(
+                       get_current_kde_activity
                        set_current_kde_activity
                        list_kde_activities
                );
@@ -25,23 +26,12 @@ $SPEC{':package'} = {
     summary => 'Utilities related to KDE Activities',
 };
 
-$SPEC{list_kde_activities} = {
-    v => 1.1,
-    summary => "List all known KDE activities",
-    args => {
-        detail => {
-            schema => 'bool*',
-            cmdline_aliases => {l=>{}},
-        },
-    },
-    deps => {
-        prog => 'kactivities-cli',
-    },
-};
-sub list_kde_activities {
+sub _list_kde_activities {
+    my $which = shift;
     my %args = @_;
 
-    system({capture_stdout => \my $stdout}, "kactivities-cli", "--list-activities");
+    system({capture_stdout => \my $stdout},
+           "kactivities-cli", ($which eq 'list' ? ("--list-activities") : ('--current-activity')));
     return [500, "Can't run kactivities-cli"] if $?;
     my @rows;
 
@@ -61,6 +51,62 @@ sub list_kde_activities {
     }
 
     return [200, "OK", \@rows];
+}
+
+$SPEC{list_kde_activities} = {
+    v => 1.1,
+    summary => "List all known KDE activities",
+    args => {
+        detail => {
+            schema => 'bool*',
+            cmdline_aliases => {l=>{}},
+        },
+    },
+    deps => {
+        prog => 'kactivities-cli',
+    },
+};
+sub list_kde_activities {
+    _list_kde_activities('list', @_);
+}
+
+$SPEC{get_current_kde_activity} = {
+    v => 1.1,
+    summary => "Return the name of the current KDE activity",
+    args => {
+        detail => {
+            schema => 'bool*',
+            cmdline_aliases => {l=>{}},
+        },
+        guid => {
+            summary => 'Return the GUID instead of the name',
+            schema => 'bool*',
+        },
+        name => {
+            summary => 'Return the name instead of the GUID (the default behavior)',
+            schema => 'bool*',
+            default => 1,
+        },
+    },
+    deps => {
+        prog => 'kactivities-cli',
+    },
+    args_rels => {
+        choose_one => [qw/guid name/],
+    },
+};
+sub get_current_kde_activity {
+    my %args = @_;
+    my $detail = delete($args{detail});
+    my $name = delete($args{name}) // 1;
+    my $guid = delete($args{guid});
+
+    my $res = _list_kde_activities('current', %args, detail=>1);
+
+    return $res unless $res->[0] == 200;
+    if ($detail) { $res->[2][0] }
+    elsif ($guid) { $res->[2][0]{guid} }
+    else { $res->[2][0]{name} }
 }
 
 my $_comp_kde_activity_name = sub {
