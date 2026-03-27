@@ -104,9 +104,9 @@ sub get_current_kde_activity {
     my $res = _list_kde_activities('current', %args, detail=>1);
 
     return $res unless $res->[0] == 200;
-    if ($detail) { $res->[2][0] }
-    elsif ($guid) { $res->[2][0]{guid} }
-    else { $res->[2][0]{name} }
+    if ($detail) { [200, "OK", $res->[2][0]] }
+    elsif ($guid) { [200, "OK", $res->[2][0]{guid}] }
+    else { [200, "OK", $res->[2][0]{name}] }
 }
 
 my $_comp_kde_activity_name = sub {

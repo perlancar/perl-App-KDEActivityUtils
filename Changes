@@ -1,3 +1,13 @@
+0.002   2026-03-27  Released-By: PERLANCAR; Urgency: medium
+
+        - Add utility: get-current-kde-activity
+
+        [REMOVED FEATURES]
+
+        - Disable utilities: list-kde-activities-stack,
+          return-to-previously-set-kde-activity.
+
+
 0.001   2026-03-26  Released-By: PERLANCAR
 
         - First, early release.
