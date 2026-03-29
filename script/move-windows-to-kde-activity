@@ -1,0 +1,63 @@
+#!perl
+
+use 5.010001;
+use strict;
+use warnings;
+use Log::ger;
+
+use Desktop::KDEActivity::Util ();
+use App::XWindowManagerUtils ();
+use Perinci::CmdLine::Any;
+use Perinci::Sub::Util qw(gen_modified_sub);
+
+my $res = gen_modified_sub(
+    output_name => 'move_windows_to_kde_activity',
+    base_name => 'App::XWindowManagerUtils::list_xwm_windows',
+    add_args => {
+        activity_name => {
+            schema => 'str*',
+            req => 1,
+            cmdline_aliases => {a=>{}},
+        },
+    },
+    wrap_code => sub {
+        my $orig = shift;
+        my %args = @_;
+
+        my $activity_name = delete $args{activity_name};
+
+        my $res_list_act = Desktop::KDEActivity::Util::list_kde_activities(detail => 1);
+        return [500, "Can't list KDE activities: $res_list_act->[0] - $res_list_act->[1]"]
+            unless $res_list_act->[0] == 200;
+
+        my $guid;
+        for my $row (@{ $res_list_act->[2] }) {
+            if ($row->{name} eq $activity_name) {
+                $guid = $row->{guid};
+                last;
+            }
+        }
+        return [404, "Can't find KDE activity named '$activity_name'"]
+            unless $guid;
+
+        my $res_list_win = $orig->(%args, detail=>1);
+        return [500, "Can't list windows: $res_list_win->[0] - $res_list_win->[1]"]
+            unless $res_list_win->[0] == 200;
+
+        return [404, "Can't find any matching windows"] unless @{ $res_list_win->[2] };
+        for my $win (@{ $res_list_win->[2] }) {
+            system "xprop", "-f", "_KDE_NET_WM_ACTIVITIES", "8s", "-id", $win->{id},
+                "-set", "_KDE_NET_WM_ACTIVITIES", $guid;
+        }
+
+        [200];
+    },
+);
+
+Perinci::CmdLine::Any->new(
+    url => '/main/move_windows_to_kde_activity',
+    log => 1,
+)->run;
+
+# ABSTRACT: Move windows to a specified KDE activity
+# PODNAME:
