@@ -1,3 +1,8 @@
+0.004   2026-03-30  Released-By: PERLANCAR; Urgency: medium
+
+        - [ux] Add short aliases: getkact, setkact.
+
+
 0.003   2026-03-29  Released-By: PERLANCAR; Urgency: medium
 
         [REMOVED]
