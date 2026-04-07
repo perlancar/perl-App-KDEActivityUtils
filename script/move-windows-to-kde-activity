@@ -15,7 +15,7 @@ my $res = gen_modified_sub(
     base_name => 'App::XWindowManagerUtils::list_xwm_windows',
     add_args => {
         activity_name => {
-            schema => 'str*',
+            schema => 'kdeactivity::name*',
             req => 1,
             cmdline_aliases => {a=>{}},
         },
